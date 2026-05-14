@@ -1,0 +1,130 @@
+basePath: /
+definitions:
+  shorner.ShortenOutput:
+    properties:
+      code:
+        type: string
+      original_url:
+        type: string
+      short_url:
+        type: string
+    type: object
+  shorner.URL:
+    properties:
+      code:
+        type: string
+      created_at:
+        type: string
+      original_url:
+        type: string
+    type: object
+  shorner.errorResponse:
+    properties:
+      error:
+        example: 'invalid url: must be a valid http or https url'
+        type: string
+    type: object
+  shorner.shortenRequest:
+    properties:
+      url:
+        example: https://github.com/joaovv-Vitor/Shorner-url
+        type: string
+    type: object
+info:
+  contact: {}
+  description: This is a highly scalable URL shortener API built with Go, Redis, and
+    Cassandra.
+  title: Shorner URL API
+  version: "1.0"
+paths:
+  /{code}:
+    get:
+      description: Redirects the client to the original URL associated with the short
+        code.
+      parameters:
+      - description: Short URL Code
+        in: path
+        name: code
+        required: true
+        type: string
+      responses:
+        "301":
+          description: Moved Permanently
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/shorner.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/shorner.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/shorner.errorResponse'
+      summary: Redirect to Original URL
+      tags:
+      - urls
+  /api/shorten:
+    post:
+      consumes:
+      - application/json
+      description: Creates a short URL for the provided original URL. If it already
+        exists, returns the existing code.
+      parameters:
+      - description: URL to shorten
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/shorner.shortenRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/shorner.ShortenOutput'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/shorner.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/shorner.errorResponse'
+      summary: Shorten a URL
+      tags:
+      - urls
+  /api/urls/{code}:
+    get:
+      description: Returns information about a specific shortened URL.
+      parameters:
+      - description: Short URL Code
+        in: path
+        name: code
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/shorner.URL'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/shorner.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/shorner.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/shorner.errorResponse'
+      summary: Get URL Details
+      tags:
+      - urls
+swagger: "2.0"

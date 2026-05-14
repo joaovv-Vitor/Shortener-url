@@ -15,12 +15,18 @@ import (
 	"github.com/gocql/gocql"
 	"github.com/joho/godotenv"
 	"github.com/lmittmann/tint"
+	httpSwagger "github.com/swaggo/http-swagger"
 
+	_ "github.com/joaovv-Vitor/Shorner-url/docs"
 	"github.com/joaovv-Vitor/Shorner-url/internal/config"
 	"github.com/joaovv-Vitor/Shorner-url/internal/shorner"
 	hashids "github.com/joaovv-Vitor/Shorner-url/pkg/hashids_generator"
 )
 
+// @title           Shorner URL API
+// @version         1.0
+// @description     This is a highly scalable URL shortener API built with Go, Redis, and Cassandra.
+// @BasePath        /
 func main() {
 	// Setup structured logger with colored output.
 	logger := slog.New(tint.NewHandler(os.Stdout, &tint.Options{
@@ -86,6 +92,12 @@ func main() {
 	r.Use(middleware.Recoverer)
 	r.Use(shorner.RequestLogger(logger))
 	httpHandler.RegisterRoutes(r)
+
+	// Swagger endpoint
+	r.Get("/swagger", http.RedirectHandler("/swagger/index.html", http.StatusMovedPermanently).ServeHTTP)
+	r.Get("/swagger/*", httpSwagger.Handler(
+		httpSwagger.URL("/swagger/doc.json"),
+	))
 
 	server := &http.Server{
 		Addr:         fmt.Sprintf(":%s", cfg.ServerPort),
