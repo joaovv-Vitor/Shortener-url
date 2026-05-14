@@ -5,6 +5,8 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+
+	"github.com/go-chi/chi/v5"
 )
 
 // Handler holds HTTP handlers and their dependencies.
@@ -23,11 +25,11 @@ func NewHandler(service *Service, baseURL string, logger *slog.Logger) *Handler 
 	}
 }
 
-// RegisterRoutes registers all HTTP routes on the given mux.
-func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("POST /api/shorten", h.handleShorten)
-	mux.HandleFunc("GET /api/urls/{code}", h.handleGetURL)
-	mux.HandleFunc("GET /{code}", h.handleRedirect)
+// RegisterRoutes registers all HTTP routes on the given chi router.
+func (h *Handler) RegisterRoutes(r chi.Router) {
+	r.Post("/api/shorten", h.handleShorten)
+	r.Get("/api/urls/{code}", h.handleGetURL)
+	r.Get("/{code}", h.handleRedirect)
 }
 
 // --- Request / Response types ---
@@ -71,7 +73,7 @@ func (h *Handler) handleShorten(w http.ResponseWriter, r *http.Request) {
 // handleRedirect handles GET /{code}
 // Redirects to the original URL with a 301 status.
 func (h *Handler) handleRedirect(w http.ResponseWriter, r *http.Request) {
-	code := r.PathValue("code")
+	code := chi.URLParam(r, "code")
 	if code == "" {
 		h.writeJSON(w, http.StatusBadRequest, errorResponse{Error: "code is required"})
 		return
@@ -94,7 +96,7 @@ func (h *Handler) handleRedirect(w http.ResponseWriter, r *http.Request) {
 // handleGetURL handles GET /api/urls/{code}
 // Returns URL information as JSON.
 func (h *Handler) handleGetURL(w http.ResponseWriter, r *http.Request) {
-	code := r.PathValue("code")
+	code := chi.URLParam(r, "code")
 	if code == "" {
 		h.writeJSON(w, http.StatusBadRequest, errorResponse{Error: "code is required"})
 		return

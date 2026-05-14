@@ -3,6 +3,7 @@ package config
 
 import (
 	"os"
+	"strings"
 )
 
 // Config holds all application configuration.
@@ -17,14 +18,29 @@ type Config struct {
 	// HashSalt is the secret salt used by Hashids to generate
 	// non-sequential, obfuscated short codes.
 	HashSalt string
+
+	// CassandraHosts is a comma-separated list of Cassandra contact points.
+	// Example: "127.0.0.1" or "cassandra-1,cassandra-2"
+	CassandraHosts []string
+
+	// CassandraKeyspace is the Cassandra keyspace to use.
+	CassandraKeyspace string
 }
 
 // Load reads configuration from environment variables with sensible defaults.
 func Load() *Config {
+	hostsRaw := getEnv("CASSANDRA_HOSTS", "127.0.0.1")
+	hosts := strings.Split(hostsRaw, ",")
+	for i := range hosts {
+		hosts[i] = strings.TrimSpace(hosts[i])
+	}
+
 	return &Config{
-		ServerPort: getEnv("SERVER_PORT", "8080"),
-		BaseURL:    getEnv("BASE_URL", "http://localhost:8080"),
-		HashSalt:   getEnv("HASH_SALT", "shorner-default-dev-salt"),
+		ServerPort:        getEnv("SERVER_PORT", "8080"),
+		BaseURL:           getEnv("BASE_URL", "http://localhost:8080"),
+		HashSalt:          getEnv("HASH_SALT", "shorner-default-dev-salt"),
+		CassandraHosts:    hosts,
+		CassandraKeyspace: getEnv("CASSANDRA_KEYSPACE", "shorner"),
 	}
 }
 
