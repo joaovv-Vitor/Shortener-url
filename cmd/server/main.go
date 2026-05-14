@@ -12,6 +12,7 @@ import (
 
 	"github.com/joaovv-Vitor/Shorner-url/internal/config"
 	"github.com/joaovv-Vitor/Shorner-url/internal/shorner"
+	hashids "github.com/joaovv-Vitor/Shorner-url/pkg/hashids_generator"
 )
 
 func main() {
@@ -23,10 +24,17 @@ func main() {
 	// Load configuration.
 	cfg := config.Load()
 
+	// Initialize short code encoder (Hashids + Base62 + salt).
+	encoder, err := hashids.NewGenerator(cfg.HashSalt, 4, 7)
+	if err != nil {
+		logger.Error("failed to initialize shortcode encoder", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
 	// Wire dependencies (in-memory adapters for now).
 	repo := shorner.NewMemoryRepository()
 	idGenerator := shorner.NewMemoryIDGenerator()
-	urlService := shorner.NewService(repo, idGenerator)
+	urlService := shorner.NewService(repo, idGenerator, encoder)
 	httpHandler := shorner.NewHandler(urlService, cfg.BaseURL, logger)
 
 	// Setup HTTP server.

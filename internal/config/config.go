@@ -13,6 +13,10 @@ type Config struct {
 	// BaseURL is the public-facing base URL used to construct short URLs.
 	// Example: "http://localhost:8080"
 	BaseURL string
+
+	// HashSalt is the secret salt used by Hashids to generate
+	// non-sequential, obfuscated short codes.
+	HashSalt string
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -20,6 +24,7 @@ func Load() *Config {
 	return &Config{
 		ServerPort: getEnv("SERVER_PORT", "8080"),
 		BaseURL:    getEnv("BASE_URL", "http://localhost:8080"),
+		HashSalt:   getEnv("HASH_SALT", "shorner-default-dev-salt"),
 	}
 }
 

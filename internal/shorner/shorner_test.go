@@ -3,6 +3,8 @@ package shorner
 import (
 	"context"
 	"testing"
+
+	hashids "github.com/joaovv-Vitor/Shorner-url/pkg/hashids_generator"
 )
 
 // --- Entity tests ---
@@ -64,12 +66,23 @@ func TestNewURL_Invalid(t *testing.T) {
 	}
 }
 
+// --- Helper to create a test service ---
+
+func newTestService(t *testing.T) *Service {
+	t.Helper()
+	repo := NewMemoryRepository()
+	gen := NewMemoryIDGenerator()
+	encoder, err := hashids.NewGenerator("test-secret-salt", 6, 9)
+	if err != nil {
+		t.Fatalf("failed to create encoder: %v", err)
+	}
+	return NewService(repo, gen, encoder)
+}
+
 // --- Service tests ---
 
 func TestShorten_Success(t *testing.T) {
-	repo := NewMemoryRepository()
-	gen := NewMemoryIDGenerator()
-	svc := NewService(repo, gen)
+	svc := newTestService(t)
 
 	result, err := svc.Shorten(context.Background(), ShortenInput{
 		OriginalURL: "https://example.com/very/long/path",
@@ -82,18 +95,21 @@ func TestShorten_Success(t *testing.T) {
 	if result.Code == "" {
 		t.Error("expected non-empty code")
 	}
+	if len(result.Code) < 6 || len(result.Code) > 9 {
+		t.Errorf("expected code between 6-9 chars, got %d (%q)", len(result.Code), result.Code)
+	}
 	if result.OriginalURL != "https://example.com/very/long/path" {
 		t.Errorf("expected original_url to match input")
 	}
 	if result.ShortURL == "" {
 		t.Error("expected non-empty short_url")
 	}
+
+	t.Logf("generated code: %q (len=%d)", result.Code, len(result.Code))
 }
 
 func TestShorten_Idempotent(t *testing.T) {
-	repo := NewMemoryRepository()
-	gen := NewMemoryIDGenerator()
-	svc := NewService(repo, gen)
+	svc := newTestService(t)
 
 	url := "https://example.com/idempotent"
 	baseURL := "http://localhost:8080"
@@ -113,10 +129,24 @@ func TestShorten_Idempotent(t *testing.T) {
 	}
 }
 
+func TestShorten_NonSequentialCodes(t *testing.T) {
+	svc := newTestService(t)
+	baseURL := "http://localhost:8080"
+
+	result1, _ := svc.Shorten(context.Background(), ShortenInput{OriginalURL: "https://example.com/1"}, baseURL)
+	result2, _ := svc.Shorten(context.Background(), ShortenInput{OriginalURL: "https://example.com/2"}, baseURL)
+	result3, _ := svc.Shorten(context.Background(), ShortenInput{OriginalURL: "https://example.com/3"}, baseURL)
+
+	t.Logf("codes: %q, %q, %q", result1.Code, result2.Code, result3.Code)
+
+	// Verify codes look non-sequential (not just incrementing numbers).
+	if result1.Code == "1" || result2.Code == "2" || result3.Code == "3" {
+		t.Error("codes should be obfuscated, not plain sequential numbers")
+	}
+}
+
 func TestShorten_InvalidURL(t *testing.T) {
-	repo := NewMemoryRepository()
-	gen := NewMemoryIDGenerator()
-	svc := NewService(repo, gen)
+	svc := newTestService(t)
 
 	_, err := svc.Shorten(context.Background(), ShortenInput{
 		OriginalURL: "not-a-valid-url",
@@ -128,9 +158,7 @@ func TestShorten_InvalidURL(t *testing.T) {
 }
 
 func TestResolve_Success(t *testing.T) {
-	repo := NewMemoryRepository()
-	gen := NewMemoryIDGenerator()
-	svc := NewService(repo, gen)
+	svc := newTestService(t)
 
 	result, err := svc.Shorten(context.Background(), ShortenInput{
 		OriginalURL: "https://example.com",
@@ -150,9 +178,7 @@ func TestResolve_Success(t *testing.T) {
 }
 
 func TestResolve_NotFound(t *testing.T) {
-	repo := NewMemoryRepository()
-	gen := NewMemoryIDGenerator()
-	svc := NewService(repo, gen)
+	svc := newTestService(t)
 
 	_, err := svc.Resolve(context.Background(), "nonexistent")
 	if err == nil {

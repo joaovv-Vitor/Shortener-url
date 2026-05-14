@@ -90,3 +90,13 @@ type IDGenerator interface {
 	// NextID returns the next unique ID.
 	NextID(ctx context.Context) (uint64, error)
 }
+
+// CodeEncoder defines the contract for encoding/decoding numeric IDs
+// to/from short code strings. Implementations can use Base62, Hashids, etc.
+type CodeEncoder interface {
+	// Encode converts a numeric ID into a short code string.
+	Encode(id uint64) (string, error)
+
+	// Decode converts a short code string back into a numeric ID.
+	Decode(code string) (uint64, error)
+}

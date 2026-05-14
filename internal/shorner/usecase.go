@@ -3,21 +3,21 @@ package shorner
 import (
 	"context"
 	"fmt"
-
-	"github.com/joaovv-Vitor/Shorner-url/pkg/base62"
 )
 
 // Service implements the core use cases for URL shortening.
 type Service struct {
-	repo  Repository
-	idGen IDGenerator
+	repo    Repository
+	idGen   IDGenerator
+	encoder CodeEncoder
 }
 
 // NewService creates a new Service with the given dependencies.
-func NewService(repo Repository, idGen IDGenerator) *Service {
+func NewService(repo Repository, idGen IDGenerator, encoder CodeEncoder) *Service {
 	return &Service{
-		repo:  repo,
-		idGen: idGen,
+		repo:    repo,
+		idGen:   idGen,
+		encoder: encoder,
 	}
 }
 
@@ -46,13 +46,17 @@ func (s *Service) Shorten(ctx context.Context, input ShortenInput, baseURL strin
 		}, nil
 	}
 
-	// Generate a new unique ID and encode it as Base62.
+	// Generate a new unique ID.
 	id, err := s.idGen.NextID(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("generating id: %w", err)
 	}
 
-	code := base62.Encode(id)
+	// Encode the numeric ID into a short code (Hashids + Base62).
+	code, err := s.encoder.Encode(id)
+	if err != nil {
+		return nil, fmt.Errorf("encoding id: %w", err)
+	}
 
 	// Create the domain entity (validates the URL).
 	shortURL, err := NewURL(code, input.OriginalURL)
