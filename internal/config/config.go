@@ -25,6 +25,12 @@ type Config struct {
 
 	// CassandraKeyspace is the Cassandra keyspace to use.
 	CassandraKeyspace string
+
+	// RedisAddr is the Redis server address (host:port).
+	RedisAddr string
+
+	// RedisPassword is the Redis password. Empty string for no auth.
+	RedisPassword string
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -41,6 +47,8 @@ func Load() *Config {
 		HashSalt:          getEnv("HASH_SALT", "shorner-default-dev-salt"),
 		CassandraHosts:    hosts,
 		CassandraKeyspace: getEnv("CASSANDRA_KEYSPACE", "shorner"),
+		RedisAddr:         getEnv("REDIS_ADDR", "localhost:6379"),
+		RedisPassword:     getEnv("REDIS_PASSWORD", ""),
 	}
 }
 

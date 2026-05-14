@@ -10,3 +10,7 @@ HASH_SALT=change-me-in-production
 # Cassandra
 CASSANDRA_HOSTS=127.0.0.1
 CASSANDRA_KEYSPACE=shorner
+
+# Redis
+REDIS_ADDR=localhost:6379
+REDIS_PASSWORD=

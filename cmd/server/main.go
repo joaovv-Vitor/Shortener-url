@@ -41,6 +41,21 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Connect to Redis.
+	ctx := context.Background()
+	redisClient, err := shorner.NewRedisClient(ctx, shorner.RedisConfig{
+		Addr:     cfg.RedisAddr,
+		Password: cfg.RedisPassword,
+		DB:       0,
+	})
+	if err != nil {
+		logger.Error("failed to connect to redis", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+	defer redisClient.Close()
+
+	logger.Info("connected to redis", slog.String("addr", cfg.RedisAddr))
+
 	// Connect to Cassandra.
 	cassandraSession, err := shorner.NewCassandraSession(shorner.CassandraConfig{
 		Hosts:       cfg.CassandraHosts,
@@ -60,8 +75,9 @@ func main() {
 	)
 
 	// Wire dependencies.
-	repo := shorner.NewCassandraRepository(cassandraSession)
-	idGenerator := shorner.NewMemoryIDGenerator()
+	cassandraRepo := shorner.NewCassandraRepository(cassandraSession)
+	repo := shorner.NewCachedRepository(cassandraRepo, redisClient, 24*time.Hour) // Cache TTL: 24h
+	idGenerator := shorner.NewRedisIDGenerator(redisClient, "shorner:id_counter")
 	urlService := shorner.NewService(repo, idGenerator, encoder)
 	httpHandler := shorner.NewHandler(urlService, cfg.BaseURL, logger)
 
@@ -98,14 +114,15 @@ func main() {
 
 	logger.Info("shutting down server...")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err := server.Shutdown(ctx); err != nil {
+	if err := server.Shutdown(shutdownCtx); err != nil {
 		logger.Error("server forced to shutdown", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 
 	cassandraSession.Close()
+	redisClient.Close()
 	logger.Info("server stopped gracefully")
 }

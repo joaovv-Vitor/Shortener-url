@@ -27,9 +27,16 @@ func NewHandler(service *Service, baseURL string, logger *slog.Logger) *Handler 
 
 // RegisterRoutes registers all HTTP routes on the given chi router.
 func (h *Handler) RegisterRoutes(r chi.Router) {
+	r.Get("/health", h.handleHealth)
 	r.Post("/api/shorten", h.handleShorten)
 	r.Get("/api/urls/{code}", h.handleGetURL)
 	r.Get("/{code}", h.handleRedirect)
+}
+
+// handleHealth handles GET /health
+// Returns a simple status check for load balancer health probes.
+func (h *Handler) handleHealth(w http.ResponseWriter, r *http.Request) {
+	h.writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 // --- Request / Response types ---

@@ -1,0 +1,40 @@
+# docker-compose.dev.yml — Development override.
+# Usage: docker compose -f docker-compose.dev.yml up -d
+# Starts only Cassandra + Redis with exposed ports for local Go development.
+# The Go app is run directly with "go run ./cmd/server/".
+
+services:
+  cassandra:
+    image: cassandra:4
+    container_name: shorner-cassandra
+    ports:
+      - "9042:9042"
+    environment:
+      - CASSANDRA_CLUSTER_NAME=shorner-cluster
+      - CASSANDRA_DC=dc1
+      - CASSANDRA_RACK=rack1
+    volumes:
+      - cassandra-data:/var/lib/cassandra
+    healthcheck:
+      test: ["CMD-SHELL", "cqlsh -e 'DESCRIBE KEYSPACES'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    container_name: shorner-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  cassandra-data:
+  redis-data:

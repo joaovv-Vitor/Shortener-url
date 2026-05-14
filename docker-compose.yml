@@ -1,16 +1,15 @@
 services:
+  # --- Infrastructure ---
+
   cassandra:
     image: cassandra:4
     container_name: shorner-cassandra
-    ports:
-      - "9042:9042"
     environment:
       - CASSANDRA_CLUSTER_NAME=shorner-cluster
       - CASSANDRA_DC=dc1
       - CASSANDRA_RACK=rack1
     volumes:
       - cassandra-data:/var/lib/cassandra
-      - ./scripts/cassandra-init.cql:/docker-entrypoint-initdb.d/init.cql
     healthcheck:
       test: ["CMD-SHELL", "cqlsh -e 'DESCRIBE KEYSPACES'"]
       interval: 10s
@@ -18,5 +17,72 @@ services:
       retries: 10
       start_period: 30s
 
+  # Runs the CQL init script once Cassandra is healthy.
+  cassandra-init:
+    image: cassandra:4
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    volumes:
+      - ./scripts/cassandra-init.cql:/scripts/cassandra-init.cql
+      - ./scripts/wait-for-cassandra.sh:/scripts/wait-for-cassandra.sh
+    entrypoint: ["sh", "/scripts/wait-for-cassandra.sh"]
+    environment:
+      - CASSANDRA_HOST=cassandra
+    restart: "no"
+
+  redis:
+    image: redis:7-alpine
+    container_name: shorner-redis
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # --- Application ---
+
+  web:
+    build: .
+    environment:
+      - SERVER_PORT=8080
+      - BASE_URL=http://localhost
+      - HASH_SALT=change-me-in-production
+      - CASSANDRA_HOSTS=cassandra
+      - CASSANDRA_KEYSPACE=shorner
+      - REDIS_ADDR=redis:6379
+      - REDIS_PASSWORD=
+    depends_on:
+      cassandra-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    deploy:
+      replicas: 3
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+
+  # --- Load Balancer ---
+
+  nginx:
+    image: nginx:alpine
+    container_name: shorner-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./scripts/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      web:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   cassandra-data:
+  redis-data:
